@@ -12,6 +12,7 @@ import '../models/note.dart';
 import '../services/note_service.dart';
 import 'create_page.dart';
 import 'detail_page.dart';
+import 'api_notes_page.dart';
 
 class HomePageProvider extends StatelessWidget {
   const HomePageProvider({super.key});
@@ -81,6 +82,17 @@ class _HomePageBodyState extends State<_HomePageBody> {
         foregroundColor: Colors.white,
         title: const Text('Mes Notes'),
         actions: [
+          // Bouton pour accéder aux Notes API
+          IconButton(
+            icon: const Icon(Icons.cloud),
+            tooltip: 'Notes API',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ApiNotesPage()),
+              );
+            },
+          ),
           // Compteur — Consumer ciblé pour ne pas reconstruire toute la page
           Consumer<NoteService>(
             builder: (_, svc, __) => Padding(
