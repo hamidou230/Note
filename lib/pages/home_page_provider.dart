@@ -1,15 +1,17 @@
 // ============================================================
-// PARTIE 2 — Provider & Gestion d'État Global
-// ============================================================
-// Pour utiliser cette page :
-//   Dans main.dart, importez ce fichier et utilisez HomePageProvider()
-//   Et enveloppez MaterialApp dans un ChangeNotifierProvider<NoteService>
+// PARTIE 2 — inchangé
+// PARTIE 3 — Étapes 22 & 23 :
+//   - icône statut connexion dans AppBar
+//   - si connecté : ouvre ApiNotesPage
+//   - si non connecté : affiche un message
 // ============================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/note.dart';
 import '../services/note_service.dart';
+import '../services/connectivity_service.dart';
 import 'create_page.dart';
 import 'detail_page.dart';
 import 'api_notes_page.dart';
@@ -48,7 +50,6 @@ class HomePageProvider extends StatelessWidget {
   }
 }
 
-// Widget interne StatefulWidget uniquement pour gérer _query (recherche)
 class _HomePageBody extends StatefulWidget {
   final VoidCallback onCreer;
   final Function(Note) onDetail;
@@ -61,6 +62,67 @@ class _HomePageBody extends StatefulWidget {
 
 class _HomePageBodyState extends State<_HomePageBody> {
   String _query = '';
+
+  // ── PARTIE 3 : état de la connexion ──────────────────────
+  bool _isConnected = false;
+  late StreamSubscription<bool> _connectivitySub;
+
+  @override
+  void initState() {
+    super.initState();
+    final connSvc = ConnectivityService();
+
+    // Vérification initiale au démarrage
+    connSvc.isConnected().then((v) {
+      if (mounted) setState(() => _isConnected = v);
+    });
+
+    // Écoute les changements en temps réel
+    _connectivitySub = connSvc.onConnectivityChanged.listen((online) {
+      if (mounted) setState(() => _isConnected = online);
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySub.cancel();
+    super.dispose();
+  }
+
+  // ── Étape 23 : comportement du bouton cloud ───────────────
+  void _onCloudPressed() {
+    if (_isConnected) {
+      // Connecté → ouvre la page API
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ApiNotesPage()),
+      );
+    } else {
+      // Non connecté → affiche un message
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.wifi_off, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('Hors ligne'),
+            ],
+          ),
+          content: const Text(
+            'Vous êtes hors ligne.\n'
+            'La synchronisation API n\'est pas disponible.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
 
   Color _hexToColor(String hex) {
     hex = hex.replaceAll('#', '');
@@ -82,18 +144,25 @@ class _HomePageBodyState extends State<_HomePageBody> {
         foregroundColor: Colors.white,
         title: const Text('Mes Notes'),
         actions: [
-          // Bouton pour accéder aux Notes API
+          // ── Étape 22 : icône statut connexion ─────────────
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Tooltip(
+              message: _isConnected ? 'En ligne' : 'Hors ligne',
+              child: Icon(
+                _isConnected ? Icons.wifi : Icons.wifi_off,
+                color: _isConnected ? Colors.greenAccent : Colors.orange,
+                size: 22,
+              ),
+            ),
+          ),
+          // ── Étape 23 : bouton cloud avec logique connecté/hors ligne
           IconButton(
             icon: const Icon(Icons.cloud),
             tooltip: 'Notes API',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ApiNotesPage()),
-              );
-            },
+            onPressed: _onCloudPressed,
           ),
-          // Compteur — Consumer ciblé pour ne pas reconstruire toute la page
+          // Compteur
           Consumer<NoteService>(
             builder: (_, svc, __) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -172,11 +241,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.note_outlined,
-                    size: 64,
-                    color: Colors.grey,
-                  ),
+                  const Icon(Icons.note_outlined, size: 64, color: Colors.grey),
                   const SizedBox(height: 16),
                   Text(
                     _query.isEmpty ? 'Aucune note' : 'Aucun résultat',
@@ -198,13 +263,9 @@ class _HomePageBodyState extends State<_HomePageBody> {
               itemBuilder: (context, index) {
                 final note = notes[index];
                 return Card(
-                  margin: const EdgeInsets.symmetric(
-                    vertical: 4,
-                    horizontal: 8,
-                  ),
+                  margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                      borderRadius: BorderRadius.circular(8)),
                   child: InkWell(
                     onTap: () => widget.onDetail(note),
                     borderRadius: BorderRadius.circular(8),
@@ -225,9 +286,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
                           Text(
                             note.titre,
                             style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                                fontSize: 16, fontWeight: FontWeight.bold),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -242,9 +301,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
                           Text(
                             _formatDate(note.dateCreation),
                             style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[400],
-                            ),
+                                fontSize: 12, color: Colors.grey[400]),
                           ),
                         ],
                       ),
